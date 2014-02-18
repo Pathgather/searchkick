@@ -3,17 +3,12 @@ module Searchkick
 
     def searchkick(options = {})
       class_eval do
-        cattr_reader :searchkick_options, :searchkick_env, :searchkick_klass, :searchkick_index
+        cattr_reader :searchkick_options, :searchkick_env, :searchkick_klass
 
         class_variable_set :@@searchkick_options, options.dup
         class_variable_set :@@searchkick_env, ENV["RACK_ENV"] || ENV["RAILS_ENV"] || "development"
         class_variable_set :@@searchkick_klass, self
         class_variable_set :@@searchkick_callbacks, options[:callbacks] != false
-
-        # set index name
-        # TODO support proc
-        index_name = options[:index_name] || [options[:index_prefix], model_name.plural, searchkick_env].compact.join("_")
-        class_variable_set :@@searchkick_index, Tire::Index.new(index_name)
 
         extend Searchkick::Search
         extend Searchkick::Reindex
@@ -24,6 +19,13 @@ module Searchkick
         else
           after_save :reindex, if: proc{ self.class.search_callbacks? }
           after_destroy :reindex, if: proc{ self.class.search_callbacks? }
+        end
+
+        def self.searchkick_index
+          options = self.searchkick_options
+          index_name = options[:index_name] || [options[:index_prefix], model_name.plural, searchkick_env].compact.join("_")
+          index_name = index_name.call if index_name.is_a?(Proc)
+          Tire::Index.new(index_name)
         end
 
         def self.enable_search_callbacks

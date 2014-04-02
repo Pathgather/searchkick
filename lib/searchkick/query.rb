@@ -201,6 +201,13 @@ module Searchkick
         }
       end
 
+      if options[:nested_filters]
+        payload[:filter] ||= {}
+        payload[:filter][:and] ?
+          payload[:filter][:and].push(options[:nested_filters]) :
+          payload[:filter].merge!(options[:nested_filters])
+      end
+
       # facets
       facet_limits = {}
       if options[:facets]
@@ -282,10 +289,6 @@ module Searchkick
 
       if options[:type] or klass != searchkick_klass
         @type = [options[:type] || klass].flatten.map{|v| searchkick_index.klass_document_type(v) }
-      end
-
-      if options[:passthrough]
-        payload.merge!(options[:passthrough])
       end
 
       @body = payload

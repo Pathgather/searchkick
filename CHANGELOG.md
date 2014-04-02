@@ -1,6 +1,18 @@
-## 0.5.3 [unreleased]
+## 0.6.1
 
-- Added personalize option
+- Fixed huge issue w/ zero-downtime reindexing on 0.90 and elasticsearch-ruby 1.0
+- Restore load: false behavior
+- Restore total_entries method
+
+## 0.6.0
+
+- Moved to elasticsearch-ruby
+- Added support for modifying the query and viewing the response
+- Added support for page_entries_info method
+
+## 0.5.3
+
+- Fixed bug w/ word_* queries
 
 ## 0.5.2
 

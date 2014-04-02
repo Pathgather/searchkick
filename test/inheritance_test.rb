@@ -10,7 +10,7 @@ class TestInheritance < Minitest::Unit::TestCase
   end
 
   def test_child_index_name
-    assert_equal "animals_test", Dog.searchkick_index.name
+    assert_equal "animals-#{Date.today.year}", Dog.searchkick_index.name
   end
 
   def test_child_search
@@ -23,6 +23,19 @@ class TestInheritance < Minitest::Unit::TestCase
     store_names ["Bear"], Dog
     store_names ["Bear"], Cat
     assert_equal 2, Animal.search("bear").size
+  end
+
+  def test_force_one_type
+    store_names ["Green Bear"], Dog
+    store_names ["Blue Bear"], Cat
+    assert_equal ["Blue Bear"], Animal.search("bear", type: [Cat]).map(&:name)
+  end
+
+  def test_force_multiple_types
+    store_names ["Green Bear"], Dog
+    store_names ["Blue Bear"], Cat
+    store_names ["Red Bear"], Animal
+    assert_equal ["Green Bear", "Blue Bear"], Animal.search("bear", type: [Dog, Cat]).map(&:name)
   end
 
   def test_child_autocomplete

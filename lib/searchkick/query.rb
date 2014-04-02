@@ -284,6 +284,10 @@ module Searchkick
         @type = [options[:type] || klass].flatten.map{|v| searchkick_index.klass_document_type(v) }
       end
 
+      if options[:passthrough]
+        payload.merge!(options[:passthrough])
+      end
+
       @body = payload
       @facet_limits = facet_limits
       @page = page

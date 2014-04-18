@@ -78,9 +78,9 @@ module Searchkick
                 fields: [field],
                 query: term,
                 use_dis_max: false,
-                operator: operator,
-                cutoff_frequency: 0.001
+                operator: operator
               }
+              shared_options[:cutoff_frequency] = 0.001 unless operator == "and"
               queries.concat [
                 {multi_match: shared_options.merge(boost: 10, analyzer: "searchkick_search")},
                 {multi_match: shared_options.merge(boost: 10, analyzer: "searchkick_search2")}
@@ -121,13 +121,16 @@ module Searchkick
                   path: conversions_field,
                   score_mode: "total",
                   query: {
-                    custom_score: {
+                    function_score: {
+                      boost_mode: "replace",
                       query: {
                         match: {
                           query: term
                         }
                       },
-                      script: "doc['count'].value"
+                      script_score: {
+                        script: "doc['count'].value"
+                      }
                     }
                   }
                 }
@@ -146,7 +149,9 @@ module Searchkick
               field: options[:boost]
             }
           },
-          script: "log(doc['#{options[:boost]}'].value + 2.718281828)"
+          script_score: {
+            script: "log(doc['#{options[:boost]}'].value + 2.718281828)"
+          }
         }
       end
 
@@ -157,7 +162,7 @@ module Searchkick
               personalize_field => options[:user_id]
             }
           },
-          boost: 100
+          boost_factor: 100
         }
       end
 
@@ -166,16 +171,16 @@ module Searchkick
           filter: {
             term: options[:personalize]
           },
-          boost: 100
+          boost_factor: 100
         }
       end
 
       if custom_filters.any?
         payload = {
-          custom_filters_score: {
+          function_score: {
+            functions: custom_filters,
             query: payload,
-            filters: custom_filters,
-            score_mode: "total"
+            score_mode: "sum"
           }
         }
       end
@@ -310,20 +315,30 @@ module Searchkick
       klass.searchkick_klass
     end
 
-    def execute
+    def params
       params = {
         index: options[:index_name] || searchkick_index.name,
         body: body
       }
       params.merge!(type: @type) if @type
+      params
+    end
+
+    def execute
       begin
         response = Searchkick.client.search(params)
       rescue => e # TODO rescue type
         status_code = e.message[1..3].to_i
         if status_code == 404
           raise "Index missing - run #{searchkick_klass.name}.reindex"
-        elsif status_code == 500 and (e.message.include?("IllegalArgumentException[minimumSimilarity >= 1]") or e.message.include?("No query registered for [multi_match]") or e.message.include?("[match] query does not support [cutoff_frequency]]"))
-          raise "Upgrade Elasticsearch to 0.90.0 or greater"
+        elsif status_code == 500 and (
+            e.message.include?("IllegalArgumentException[minimumSimilarity >= 1]") or
+            e.message.include?("No query registered for [multi_match]") or
+            e.message.include?("[match] query does not support [cutoff_frequency]]") or
+            e.message.include?("No query registered for [function_score]]")
+          )
+
+          raise "This version of Searchkick requires Elasticsearch 0.90.4 or greater"
         else
           raise e
         end

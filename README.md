@@ -43,6 +43,8 @@ Add this line to your application’s Gemfile:
 gem "searchkick"
 ```
 
+For Elasticsearch 0.90, use version `0.6.3`.
+
 Add searchkick to models you want to search.
 
 ```ruby
@@ -595,8 +597,6 @@ products = query.execute
 
 ## Reference
 
-Searchkick requires Elasticsearch `0.90.0` or higher.
-
 Reindex one record
 
 ```ruby
@@ -744,9 +744,9 @@ rake searchkick:reindex:all
 
 4. Once it finishes, replace search calls w/ searchkick calls
 
-## Note about 0.6.0
+## Note about 0.6.0 and 0.7.0
 
-If running Searchkick `0.6.0` and Elasticsearch `0.90`, we recommend upgrading to Searchkick `0.6.1` to fix an issue that causes downtime when reindexing.
+If running Searchkick `0.6.0` or `0.7.0` and Elasticsearch `0.90`, we recommend upgrading to Searchkick `0.6.1` or `0.7.1` to fix an issue that causes downtime when reindexing.
 
 ## Elasticsearch Gotchas
 
@@ -791,7 +791,5 @@ Everyone is encouraged to help improve this project. Here are a few ways you can
 To get started with development and testing:
 
 1. Clone the repo
-2. Install PostgreSQL and create a database called `searchkick_test` (`psql -d postgres -c "create database searchkick_test"`)
-3. Install Elasticsearch
-4. `bundle`
-5. `rake test`
+2. `bundle`
+3. `rake test`

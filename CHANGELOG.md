@@ -1,3 +1,23 @@
+## 0.7.1
+
+- Fixed huge issue w/ zero-downtime reindexing on 0.90
+
+## 0.7.0
+
+- Added support for Elasticsearch 1.1
+- Dropped support for Elasticsearch below 0.90.4 (unfortunate side effect of above)
+
+## 0.6.3
+
+- Removed patron since no support for Windows
+- Added error if `searchkick` is called multiple times
+
+## 0.6.2
+
+- Added logging
+- Fixed index_name option
+- Added ability to use proc as the index name
+
 ## 0.6.1
 
 - Fixed huge issue w/ zero-downtime reindexing on 0.90 and elasticsearch-ruby 1.0

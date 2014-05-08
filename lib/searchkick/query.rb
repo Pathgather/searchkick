@@ -232,6 +232,15 @@ module Searchkick
                 size: facet_options[:limit] ? facet_options[:limit] + 150 : 100000
               }
             }
+
+            if field.to_s.include?(".") && self.searchkick_options.has_key?(:mappings)
+              parent = field.to_s.split(".")[0]
+              root, mappings = self.searchkick_options[:mappings].first
+              properties = mappings.with_indifferent_access[:properties]
+              if properties && properties.with_indifferent_access.key?(parent) && properties.with_indifferent_access[parent][:type] == "nested"
+                payload[:facets][field].merge!({nested: parent})
+              end
+            end
           end
 
           facet_limits[field] = facet_options[:limit] if facet_options[:limit]

@@ -4,6 +4,8 @@ module Searchkick
     # https://gist.github.com/jarosan/3124884
     # http://www.elasticsearch.org/blog/changing-mapping-with-zero-downtime/
     def reindex
+      raise "Don't reindex a searchkick child!" if searchkick_parent
+
       alias_name = searchkick_index.name
       new_name = alias_name + "_" + Time.now.strftime("%Y%m%d%H%M%S%L")
       index = Searchkick::Index.new(new_name)
@@ -15,6 +17,7 @@ module Searchkick
       # check if alias exists
       if Searchkick.client.indices.exists_alias(name: alias_name)
         searchkick_import(index) # import before swap
+        searchkick_child.send(:searchkick_import, index) if searchkick_child
 
         # get existing indices to remove
         old_indices = Searchkick.client.indices.get_alias(name: alias_name).keys
@@ -25,6 +28,7 @@ module Searchkick
         searchkick_index.delete if searchkick_index.exists?
         Searchkick.client.indices.update_aliases body: {actions: [{add: {index: new_name, alias: alias_name}}]}
         searchkick_import(index) # import after swap
+        searchkick_child.send(:searchkick_import, index) if searchkick_child
       end
 
       index.refresh

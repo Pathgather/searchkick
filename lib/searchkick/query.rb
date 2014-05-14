@@ -200,6 +200,31 @@ module Searchkick
 
       # filters
       filters = where_filters(options[:where])
+
+      # has_child filter
+      if value = options[:has_child]
+        filters << {
+          has_child: {
+            type: value.delete(:type),
+            filter: {
+              and: where_filters(value[:where])
+            }
+          }
+        }
+      end
+
+      # has_parent filter
+      if value = options[:has_parent]
+        filters << {
+          has_parent: {
+            type: value.delete(:type),
+            filter: {
+              and: where_filters(value[:where])
+            }
+          }
+        }
+      end
+
       if filters.any?
         payload[:filter] = {
           and: filters
@@ -290,7 +315,7 @@ module Searchkick
       # http://www.elasticsearch.org/guide/reference/api/search/fields/
       payload[:fields] = [] if load
 
-      if options[:type] or klass != searchkick_klass
+      if options[:type] or klass != searchkick_klass || klass.searchkick_parent || klass.searchkick_child
         @type = [options[:type] || klass].flatten.map{|v| searchkick_index.klass_document_type(v) }
       end
 

@@ -14,9 +14,21 @@ module Searchkick
         class_variable_set :@@searchkick_index, options[:index_name] || [options[:index_prefix], model_name.plural, searchkick_env].compact.join("_")
 
         def self.searchkick_index
-          index = class_variable_get :@@searchkick_index
-          index = index.call if index.respond_to? :call
-          Searchkick::Index.new(index)
+          if searchkick_parent
+            searchkick_parent.searchkick_index
+          else
+            index = class_variable_get :@@searchkick_index
+            index = index.call if index.respond_to? :call
+            Searchkick::Index.new(index)
+          end
+        end
+
+        def self.searchkick_parent
+          searchkick_options[:parent].try(:constantize)
+        end
+
+        def self.searchkick_child
+          searchkick_options[:child].try(:constantize)
         end
 
         extend Searchkick::Search

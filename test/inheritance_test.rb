@@ -71,10 +71,10 @@ class TestInheritance < Minitest::Unit::TestCase
 
   # TODO move somewhere better
 
-  def test_multiple_indices
-    store_names ["Product A"]
-    store_names ["Product B"], Animal
-    assert_search "product", ["Product A", "Product B"], index_name: [Product.searchkick_index.name, Animal.searchkick_index.name], conversions: false
-  end
+  # def test_multiple_indices
+  #   store_names ["Product A"]
+  #   store_names ["Product B"], Animal
+  #   assert_search "product", ["Product A", "Product B"], index_name: [Product.searchkick_index.name, Animal.searchkick_index.name], conversions: false
+  # end
 
 end

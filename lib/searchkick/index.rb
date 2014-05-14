@@ -23,20 +23,11 @@ module Searchkick
     end
 
     def store(record)
-      client.index(
-        index: name,
-        type: document_type(record),
-        id: record.id,
-        body: search_data(record)
-      )
+      client.index identity(record).merge(body: search_data(record))
     end
 
     def remove(record)
-      client.delete(
-        index: name,
-        type: document_type(record),
-        id: record.id
-      )
+      client.delete identity(record)
     end
 
     def import(records)
@@ -44,27 +35,45 @@ module Searchkick
         client.bulk(
           index: name,
           type: type,
-          body: batch.map{|r| data = search_data(r); {index: {_id: data["_id"] || data["id"] || r.id, data: data}} }
+          body: batch.map { |r|
+            data = search_data(r)
+
+            doc = {
+              _id: data["_id"] || data["id"] || r.id,
+              data: data
+            }
+
+            doc[:_parent] = r.elasticsearch_parent_id.to_s if r.respond_to?(:elasticsearch_parent_id)
+
+            { index: doc }
+          }
         )
       end
     end
 
     def retrieve(record)
-      client.get(
-        index: name,
-        type: document_type(record),
-        id: record.id
-      )["_source"]
+      client.get(identity(record))["_source"]
     end
 
     def klass_document_type(klass)
-      klass.model_name.to_s.underscore
+      klass.try(:elasticsearch_document_type) || klass.model_name.to_s.underscore
     end
 
     protected
 
     def client
       Searchkick.client
+    end
+
+    def identity(record)
+      id = {
+        index: name,
+        type: document_type(record),
+        id: record.id
+      }
+
+      id[:parent] = record.elasticsearch_parent_id.to_s if record.respond_to?(:elasticsearch_parent_id)
+      id
     end
 
     def document_type(record)

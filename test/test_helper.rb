@@ -72,6 +72,12 @@ else
     t.timestamps
   end
 
+  ActiveRecord::Migration.create_table :parts do |t|
+    t.string :name
+    t.integer :product_id
+    t.integer :total
+  end
+
   ActiveRecord::Migration.create_table :stores do |t|
     t.string :name
   end
@@ -82,6 +88,9 @@ else
   end
 
   class Product < ActiveRecord::Base
+  end
+
+  class Part < ActiveRecord::Base
   end
 
   class Store < ActiveRecord::Base
@@ -119,7 +128,21 @@ class Product
     text_end: [:name],
     word_start: [:name],
     word_middle: [:name],
-    word_end: [:name]
+    word_end: [:name],
+    mappings: {
+      product: {},
+      part: {
+        _routing: {
+          required: true,
+          path: "product_id"
+        },
+        _parent: {
+          type: "product"
+        },
+      }
+    },
+    merge_mappings: true,
+    child: "Part"
 
   attr_accessor :conversions, :user_ids
 
@@ -129,6 +152,14 @@ class Product
 
   def should_index?
     name != "DO NOT INDEX"
+  end
+end
+
+class Part
+  searchkick parent: "Product"
+
+  def elasticsearch_parent_id
+    product_id
   end
 end
 
@@ -157,6 +188,7 @@ class Minitest::Unit::TestCase
 
   def setup
     Product.destroy_all
+    Part.destroy_all
     Store.destroy_all
     Animal.destroy_all
   end

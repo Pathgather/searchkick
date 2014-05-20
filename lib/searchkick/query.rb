@@ -201,30 +201,6 @@ module Searchkick
       # filters
       filters = where_filters(options[:where])
 
-      # has_child filter
-      if value = options[:has_child]
-        filters << {
-          has_child: {
-            type: value.delete(:type),
-            filter: {
-              and: where_filters(value[:where])
-            }
-          }
-        }
-      end
-
-      # has_parent filter
-      if value = options[:has_parent]
-        filters << {
-          has_parent: {
-            type: value.delete(:type),
-            filter: {
-              and: where_filters(value[:where])
-            }
-          }
-        }
-      end
-
       if filters.any?
         payload[:filter] = {
           and: filters
@@ -396,6 +372,25 @@ module Searchkick
           value.each do |or_clause|
             filters << {or: or_clause.map{|or_statement| {and: where_filters(or_statement)} }}
           end
+
+        elsif field == :has_child
+          filters << {
+            has_child: {
+              type: value.delete(:type),
+              filter: {
+                and: where_filters(value[:where])
+              }
+            }
+          }
+        elsif field == :has_parent
+          filters << {
+            has_parent: {
+              type: value.delete(:type),
+              filter: {
+                and: where_filters(value[:where])
+              }
+            }
+          }
         else
           # expand ranges
           if value.is_a?(Range)

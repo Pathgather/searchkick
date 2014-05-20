@@ -32,11 +32,11 @@ class TestParentChild < Minitest::Unit::TestCase
   end
 
   def test_child_search
-    assert_equal ["Product1"], Product.search('*', has_child: {type: 'part', where: {total: 6}}).map(&:name)
+    assert_equal ["Product1"], Product.search('*', where: {has_child: {type: 'part', where: {total: 6}}}).map(&:name)
   end
 
   def test_parent_search
-    assert_equal ["P1-1", "P1-2"], Part.search('*', has_parent: {type: 'product', where: {orders_count: 4}}).map(&:name).sort
+    assert_equal ["P1-1", "P1-2"], Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}).map(&:name).sort
   end
 
   def test_parent_reindex
@@ -47,7 +47,7 @@ class TestParentChild < Minitest::Unit::TestCase
     # Hacky. Need to wait for reindex to take effect.
     t = Time.now
     loop do
-      if ["P1-1", "P1-2"] == Part.search('*', has_parent: {type: 'product', where: {orders_count: 4}}).map(&:name).sort
+      if ["P1-1", "P1-2"] == Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}).map(&:name).sort
         break
       elsif Time.now < (t + 5)
         sleep 0.1

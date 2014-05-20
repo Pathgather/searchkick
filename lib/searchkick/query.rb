@@ -376,7 +376,7 @@ module Searchkick
         elsif field == :has_child
           filters << {
             has_child: {
-              type: value.delete(:type),
+              type: value[:type],
               filter: {
                 and: where_filters(value[:where])
               }
@@ -385,7 +385,7 @@ module Searchkick
         elsif field == :has_parent
           filters << {
             has_parent: {
-              type: value.delete(:type),
+              type: value[:type],
               filter: {
                 and: where_filters(value[:where])
               }

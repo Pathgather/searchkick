@@ -35,8 +35,20 @@ class TestParentChild < Minitest::Unit::TestCase
     assert_equal ["Product1"], Product.search('*', where: {has_child: {type: 'part', where: {total: 6}}}).map(&:name)
   end
 
+  def test_child_search_with_facets
+    r = Product.search('*', where: {has_child: {type: 'part', where: {total: 6}}}, facets: [:orders_count], smart_facets: true)
+    assert_equal ["Product1"], r.map(&:name)
+    assert_equal [{'term' => 4, 'count' => 1}], r.facets['orders_count']['terms']
+  end
+
   def test_parent_search
     assert_equal ["P1-1", "P1-2"], Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}).map(&:name).sort
+  end
+
+  def test_parent_search_with_facets
+    r = Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}, facets: [:total], smart_facets: true)
+    assert_equal ["P1-1", "P1-2"], r.map(&:name).sort
+    assert_equal [{'term' => 6, 'count' => 1}, {'term' => 7, 'count' => 1}], r.facets['total']['terms'].sort_by{|h| h['term']}
   end
 
   def test_parent_reindex

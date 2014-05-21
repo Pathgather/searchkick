@@ -32,11 +32,11 @@ class TestParentChild < Minitest::Unit::TestCase
   end
 
   def test_child_search
-    assert_equal ["Product1"], Product.search('*', where: {has_child: {type: 'part', where: {total: 6}}}).map(&:name)
+    assert_search '*', ["Product1"], where: {has_child: {type: 'part', where: {total: 6}}}
   end
 
   def test_child_not_search
-    assert_equal ["Product2"], Product.search('*', where: {not: {has_child: {type: 'part', where: {total: 6}}}}).map(&:name)
+    assert_search '*', ["Product2"], where: {not: {has_child: {type: 'part', where: {total: 6}}}}
   end
 
   def test_child_search_with_facets
@@ -46,11 +46,11 @@ class TestParentChild < Minitest::Unit::TestCase
   end
 
   def test_parent_search
-    assert_equal ["P1-1", "P1-2"], Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}).map(&:name).sort
+    assert_search '*', ["P1-1", "P1-2"], {where: {has_parent: {type: 'product', where: {orders_count: 4}}}}, Part
   end
 
   def test_parent_not_search
-    assert_equal ["P2-1", "P2-2"], Part.search('*', where: {not: {has_parent: {type: 'product', where: {orders_count: 4}}}}).map(&:name).sort
+    assert_search '*', ["P2-1", "P2-2"], {where: {not: {has_parent: {type: 'product', where: {orders_count: 4}}}}}, Part
   end
 
   def test_parent_search_with_facets
@@ -60,21 +60,9 @@ class TestParentChild < Minitest::Unit::TestCase
   end
 
   def test_parent_reindex
-    # Make sure the reindex hack in test_helper is actually functional.
-    # Also tests that _parent is set appropriately on bulk imports.
     Product.reindex
-
-    # Hacky. Need to wait for reindex to take effect.
-    t = Time.now
-    loop do
-      if ["P1-1", "P1-2"] == Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}).map(&:name).sort
-        break
-      elsif Time.now < (t + 5)
-        sleep 0.1
-      else
-        raise "Never happened!"
-      end
-    end
+    Product.searchkick_index.refresh
+    assert_search '*', ["P1-1", "P1-2"], {where: {has_parent: {type: 'product', where: {orders_count: 4}}}}, Part
   end
 
   def test_child_reindex

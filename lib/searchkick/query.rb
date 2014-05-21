@@ -38,7 +38,8 @@ module Searchkick
       # pagination
       page = [options[:page].to_i, 1].max
       per_page = (options[:limit] || options[:per_page] || 100000).to_i
-      offset = options[:offset] || (page - 1) * per_page
+      padding = [options[:padding].to_i, 0].max
+      offset = options[:offset] || (page - 1) * per_page + padding
 
       conversions_field = searchkick_options[:conversions]
       personalize_field = searchkick_options[:personalize]
@@ -219,6 +220,7 @@ module Searchkick
         facets.each do |field, facet_options|
           # ask for extra facets due to
           # https://github.com/elasticsearch/elasticsearch/issues/1305
+          size = facet_options[:limit] ? facet_options[:limit] + 150 : 100000
 
           if facet_options[:ranges]
             payload[:facets][field] = {
@@ -226,11 +228,19 @@ module Searchkick
                 field.to_sym => facet_options[:ranges]
               }
             }
+          elsif facet_options[:stats]
+            payload[:facets][field] = {
+              terms_stats: {
+                key_field: field,
+                value_script: "doc.score",
+                size: size
+              }
+            }
           else
             payload[:facets][field] = {
               terms: {
                 field: field,
-                size: facet_options[:limit] ? facet_options[:limit] + 150 : 100000
+                size: size
               }
             }
           end
@@ -299,6 +309,7 @@ module Searchkick
       @facet_limits = facet_limits
       @page = page
       @per_page = per_page
+      @padding = padding
       @load = load
     end
 
@@ -329,7 +340,7 @@ module Searchkick
       rescue => e # TODO rescue type
         status_code = e.message[1..3].to_i
         if status_code == 404
-          raise "Index missing - run #{searchkick_klass.name}.reindex"
+          raise MissingIndexError, "Index missing - run #{searchkick_klass.name}.reindex"
         elsif status_code == 500 and (
             e.message.include?("IllegalArgumentException[minimumSimilarity >= 1]") or
             e.message.include?("No query registered for [multi_match]") or
@@ -337,7 +348,13 @@ module Searchkick
             e.message.include?("No query registered for [function_score]]")
           )
 
-          raise "This version of Searchkick requires Elasticsearch 0.90.4 or greater"
+          raise UnsupportedVersionError, "This version of Searchkick requires Elasticsearch 0.90.4 or greater"
+        elsif status_code == 400
+          if e.message.include?("[multi_match] analyzer [searchkick_search] not found")
+            raise InvalidQueryError, "Bad mapping - run #{searchkick_klass.name}.reindex"
+          else
+            raise InvalidQueryError, e.message
+          end
         else
           raise e
         end
@@ -355,6 +372,7 @@ module Searchkick
       opts = {
         page: @page,
         per_page: @per_page,
+        padding: @padding,
         load: @load,
         includes: options[:include] || options[:includes]
       }

@@ -108,6 +108,8 @@ Order
 order: {_score: :desc} # most relevant first - default
 ```
 
+[All of these sort options are supported](http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-sort.html)
+
 Limit / offset
 
 ```ruby
@@ -353,7 +355,7 @@ Typically, you want to use a JavaScript library like [typeahead.js](http://twitt
 
 #### Here’s how to make it work with Rails
 
-First, add a controller action.
+First, add a route and controller action.
 
 ```ruby
 # app/controllers/cities_controller.rb
@@ -439,6 +441,12 @@ Ranges
 ```ruby
 price_ranges = [{to: 20}, {from: 20, to: 50}, {from: 50}]
 Product.search "*", facets: {price: {ranges: price_ranges}}
+```
+
+Use the `stats` option to get to max, min, mean, and total scores for each facet [master]
+
+```ruby
+Product.search "*", facets: {store_id: {stats: true}}
 ```
 
 ### Highlight

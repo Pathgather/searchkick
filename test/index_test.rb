@@ -35,6 +35,35 @@ class TestIndex < Minitest::Unit::TestCase
     assert_equal ["Dollar Tree"], Store.search(query: {match: {name: "Dollar Tree"}}).map(&:name)
   end
 
+  def test_record_not_found
+    store_names ["Product A", "Product B"]
+    Product.where(name: "Product A").delete_all
+    assert_search "product", ["Product B"]
+  end
+
+  def test_bad_mapping
+    Product.searchkick_index.delete
+    store_names ["Product A"]
+    assert_raises(Searchkick::InvalidQueryError){ Product.search "test" }
+  ensure
+    Product.reindex
+  end
+
+  def test_missing_index
+    assert_raises(Searchkick::MissingIndexError){ Product.search "test", index_name: "not_found" }
+  end
+
+  def test_unsupported_version
+    raises_exception = lambda { |s| raise Elasticsearch::Transport::Transport::Error.new("[500] No query registered for [multi_match]") }
+    Searchkick.client.stub :search, raises_exception do
+      assert_raises(Searchkick::UnsupportedVersionError){ Product.search("test") }
+    end
+  end
+
+  def test_invalid_query
+    assert_raises(Searchkick::InvalidQueryError){ Product.search(query: {}) }
+  end
+
   if defined?(ActiveRecord)
 
     def test_transaction

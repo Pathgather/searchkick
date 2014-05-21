@@ -24,17 +24,22 @@ module Searchkick
             if options[:includes]
               records = records.includes(options[:includes])
             end
-            results[type] = records.find(grouped_hits.map{|hit| hit["_id"] })
+            results[type] =
+              if records.respond_to?(:primary_key)
+                records.where(records.primary_key => grouped_hits.map{|hit| hit["_id"] }).to_a
+              else
+                records.queryable.for_ids(grouped_hits.map{|hit| hit["_id"] }).to_a
+              end
           end
 
           # sort
           hits.map do |hit|
             results[hit["_type"]].find{|r| r.id.to_s == hit["_id"].to_s }
-          end
+          end.compact
         else
           hits.map do |hit|
             result = hit.except("_source").merge(hit["_source"])
-            result["id"] = result["_id"]
+            result["id"] ||= result["_id"] # needed for legacy reasons
             Hashie::Mash.new(result)
           end
         end
@@ -85,12 +90,17 @@ module Searchkick
     end
     alias_method :limit_value, :per_page
 
+    def padding
+      options[:padding]
+    end
+
     def total_pages
       (total_count / per_page.to_f).ceil
     end
+    alias_method :num_pages, :total_pages
 
     def offset_value
-      current_page * per_page
+      (current_page - 1) * per_page + padding
     end
     alias_method :offset, :offset_value
 

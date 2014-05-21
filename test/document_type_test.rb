@@ -9,13 +9,12 @@ class DocumentTypeTest < Minitest::Unit::TestCase
 
   def test_custom_document_type
     begin
-      Part.instance_eval { def elasticsearch_document_type; 'partz'; end }
+      Part.instance_eval { def document_type; 'partz'; end }
 
       index = Searchkick::Index.new('dummy')
       assert_equal 'partz', index.klass_document_type(Part)
-
     ensure
-      Part.instance_eval { undef :elasticsearch_document_type }
+      Part.instance_eval { undef :document_type }
     end
   end
 

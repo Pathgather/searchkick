@@ -1,3 +1,14 @@
+## 0.7.6
+
+- Added `stats` option to facets
+- Added `padding` option
+
+## 0.7.5
+
+- Do not throw errors when index becomes out of sync with database
+- Added custom exception types
+- Fixed `offset` and `offset_value`
+
 ## 0.7.4
 
 - Fixed reindex with inheritance

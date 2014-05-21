@@ -36,15 +36,8 @@ module Searchkick
           index: name,
           type: type,
           body: batch.map { |r|
-            data = search_data(r)
-
-            doc = {
-              _id: data["_id"] || data["id"] || r.id,
-              data: data
-            }
-
+            doc = {_id: search_id(r), data: search_data(r)}
             doc[:_parent] = r.elasticsearch_parent_id.to_s if r.respond_to?(:elasticsearch_parent_id)
-
             { index: doc }
           }
         )
@@ -56,7 +49,11 @@ module Searchkick
     end
 
     def klass_document_type(klass)
-      klass.try(:elasticsearch_document_type) || klass.model_name.to_s.underscore
+      if klass.respond_to?(:document_type)
+        klass.document_type
+      else
+        klass.model_name.to_s.underscore
+      end
     end
 
     protected
@@ -69,7 +66,7 @@ module Searchkick
       id = {
         index: name,
         type: document_type(record),
-        id: record.id
+        id: search_id(record)
       }
 
       id[:parent] = record.elasticsearch_parent_id.to_s if record.respond_to?(:elasticsearch_parent_id)
@@ -80,18 +77,17 @@ module Searchkick
       klass_document_type(record.class)
     end
 
+    def search_id(record)
+      record.id.is_a?(Numeric) ? record.id : record.id.to_s
+    end
+
     def search_data(record)
       source = record.search_data
+      options = record.class.searchkick_options
 
       # stringify fields
-      source = source.inject({}){|memo,(k,v)| memo[k.to_s] = v; memo}
-
-      # Mongoid 4 hack
-      if defined?(BSON::ObjectId) and source["_id"].is_a?(BSON::ObjectId)
-        source["_id"] = source["_id"].to_s
-      end
-
-      options = record.class.searchkick_options
+      # remove _id since search_id is used instead
+      source = source.inject({}){|memo,(k,v)| memo[k.to_s] = v; memo}.except("_id")
 
       # conversions
       conversions_field = options[:conversions]
@@ -116,8 +112,6 @@ module Searchkick
       end
 
       cast_big_decimal(source)
-
-      # p search_data
 
       source.as_json
     end

@@ -35,6 +35,10 @@ class TestParentChild < Minitest::Unit::TestCase
     assert_equal ["Product1"], Product.search('*', where: {has_child: {type: 'part', where: {total: 6}}}).map(&:name)
   end
 
+  def test_child_not_search
+    assert_equal ["Product2"], Product.search('*', where: {not: {has_child: {type: 'part', where: {total: 6}}}}).map(&:name)
+  end
+
   def test_child_search_with_facets
     r = Product.search('*', where: {has_child: {type: 'part', where: {total: 6}}}, facets: [:orders_count], smart_facets: true)
     assert_equal ["Product1"], r.map(&:name)
@@ -43,6 +47,11 @@ class TestParentChild < Minitest::Unit::TestCase
 
   def test_parent_search
     assert_equal ["P1-1", "P1-2"], Part.search('*', where: {has_parent: {type: 'product', where: {orders_count: 4}}}).map(&:name).sort
+  end
+
+  def test_parent_not_search
+    $break = true
+    assert_equal ["P2-1", "P2-2"], Part.search('*', where: {not: {has_parent: {type: 'product', where: {orders_count: 4}}}}).map(&:name).sort
   end
 
   def test_parent_search_with_facets

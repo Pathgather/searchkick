@@ -372,6 +372,10 @@ module Searchkick
           value.each do |or_clause|
             filters << {or: or_clause.map{|or_statement| {and: where_filters(or_statement)} }}
           end
+        elsif field == :not
+          clause = where_filters(value)
+          clause = clause.first if clause.length == 1
+          filters << {not: clause}
 
         elsif field == :has_child
           filters << {

@@ -50,7 +50,6 @@ class TestParentChild < Minitest::Unit::TestCase
   end
 
   def test_parent_not_search
-    $break = true
     assert_equal ["P2-1", "P2-2"], Part.search('*', where: {not: {has_parent: {type: 'product', where: {orders_count: 4}}}}).map(&:name).sort
   end
 

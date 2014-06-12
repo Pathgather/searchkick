@@ -22,14 +22,11 @@ module Searchkick
           hits.group_by{|hit, i| hit["_type"] }.each do |type, grouped_hits|
             records = type.camelize.constantize
             if options[:includes]
-              records = records.includes(options[:includes])
+              records = records.eager(options[:includes])
             end
+
             results[type] =
-              if records.respond_to?(:primary_key)
-                records.where(records.primary_key => grouped_hits.map{|hit| hit["_id"] }).to_a
-              else
-                records.queryable.for_ids(grouped_hits.map{|hit| hit["_id"] }).to_a
-              end
+              records.where(klass.primary_key => grouped_hits.map{|hit| hit["_id"] }).all
           end
 
           # sort

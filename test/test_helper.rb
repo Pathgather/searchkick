@@ -46,6 +46,68 @@ if defined?(Mongoid)
 
   class Cat < Animal
   end
+elsif defined? Sequel
+  DB = Sequel.sqlite
+
+  # DB.loggers << Logger.new(STDOUT)
+
+  Sequel::Model.plugin :active_model
+  Sequel::Model.plugin :hook_class_methods
+
+  DB.create_table :products do
+    primary_key :id
+    string :name
+    integer :store_id
+    boolean :in_stock
+    boolean :backordered
+    integer :orders_count
+    integer :price
+    string :color
+    decimal :latitude, precision: 10, scale: 7
+    decimal :longitude, precision: 10, scale: 7
+    timestamp :created_at
+    timestamp :updated_at
+  end
+
+  DB.create_table :parts do
+    primary_key :id
+    string :name
+    integer :product_id
+    integer :total
+  end
+
+  DB.create_table :stores do
+    primary_key :id
+    string :name
+  end
+
+  DB.create_table :animals do
+    primary_key :id
+    string :name
+    string :type
+  end
+
+  class Product < Sequel::Model
+    unrestrict_primary_key
+  end
+
+  class Part < Sequel::Model
+    unrestrict_primary_key
+  end
+
+  class Store < Sequel::Model
+    unrestrict_primary_key
+  end
+
+  class Animal < Sequel::Model
+    unrestrict_primary_key
+  end
+
+  class Dog < Animal
+  end
+
+  class Cat < Animal
+  end
 else
   require "active_record"
 
@@ -107,7 +169,8 @@ else
 end
 
 class Product
-  belongs_to :store
+  # belongs_to :store
+  many_to_one :store
 
   searchkick \
     synonyms: [
@@ -147,7 +210,7 @@ class Product
   attr_accessor :conversions, :user_ids
 
   def search_data
-    serializable_hash.except("id").merge conversions: conversions, user_ids: user_ids, location: [latitude, longitude], multiple_locations: [[latitude, longitude], [0, 0]]
+    values.except(:id).merge conversions: conversions, user_ids: user_ids, location: [latitude, longitude], multiple_locations: [[latitude, longitude], [0, 0]]
   end
 
   def should_index?
@@ -187,17 +250,17 @@ Animal.reindex
 class Minitest::Unit::TestCase
 
   def setup
-    Product.destroy_all
-    Part.destroy_all
-    Store.destroy_all
-    Animal.destroy_all
+    Product.each &:destroy
+    Part.each &:destroy
+    Store.each &:destroy
+    Animal.each &:destroy
   end
 
   protected
 
   def store(documents, klass = Product)
     documents.shuffle.each do |document|
-      klass.create!(document)
+      klass.create(document)
     end
     klass.searchkick_index.refresh
   end

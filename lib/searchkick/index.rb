@@ -113,7 +113,7 @@ module Searchkick
 
       cast_big_decimal(source)
 
-      source.as_json
+      source.respond_to?(:as_json) ? source.as_json : source
     end
 
     # change all BigDecimal values to floats due to

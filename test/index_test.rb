@@ -37,7 +37,7 @@ class TestIndex < Minitest::Unit::TestCase
 
   def test_record_not_found
     store_names ["Product A", "Product B"]
-    Product.where(name: "Product A").delete_all
+    Product.where(name: "Product A").destroy
     assert_search "product", ["Product B"]
   end
 

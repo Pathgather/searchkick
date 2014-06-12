@@ -16,7 +16,7 @@ class TestShouldIndex < Minitest::Unit::TestCase
     assert_search "index", []
     product = Product.first
     product.name = "INDEX"
-    product.save!
+    product.save
     Product.searchkick_index.refresh
     assert_search "index", ["INDEX"]
   end
@@ -26,7 +26,7 @@ class TestShouldIndex < Minitest::Unit::TestCase
     assert_search "index", ["INDEX"]
     product = Product.first
     product.name = "DO NOT INDEX"
-    product.save!
+    product.save
     Product.searchkick_index.refresh
     assert_search "index", []
   end

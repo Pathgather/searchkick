@@ -365,7 +365,7 @@ module Searchkick
         field = field.to_s
         facet = response["facets"][field]
         response["facets"][field]["terms"] = facet["terms"].first(limit)
-        response["facets"][field]["other"] = facet["total"] - facet["terms"].sum{|term| term["count"] }
+        response["facets"][field]["other"] = facet["total"] - facet["terms"].inject(0){|sum, term| term["count"] + sum }
       end
 
       opts = {

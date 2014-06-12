@@ -278,7 +278,9 @@ class TestSql < Minitest::Unit::TestCase
   if !defined?(Mongoid)
     def test_include
       store_names ["Product A"]
-      assert Product.search("product", include: [:store]).first.association(:store).loaded?
+      store = Store.create
+      Product.dataset.update(store_id: store.id)
+      assert_equal store.id, Product.search("product", include: [:store]).first.store.id
     end
   end
 

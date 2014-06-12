@@ -24,11 +24,11 @@ module Searchkick
         end
 
         def self.searchkick_parent
-          searchkick_options[:parent].try(:constantize)
+          searchkick_options[:parent] && searchkick_options[:parent].constantize
         end
 
         def self.searchkick_child
-          searchkick_options[:child].try(:constantize)
+          searchkick_options[:child] && searchkick_options[:child].constantize
         end
 
         extend Searchkick::Search
@@ -36,10 +36,10 @@ module Searchkick
         include Searchkick::Similar
 
         if respond_to?(:after_commit)
-          after_commit :reindex, if: proc{ self.class.search_callbacks? }
+          after_commit(:reindex){reindex if self.class.search_callbacks?}
         else
-          after_save :reindex, if: proc{ self.class.search_callbacks? }
-          after_destroy :reindex, if: proc{ self.class.search_callbacks? }
+          after_save(:reindex){reindex if self.class.search_callbacks?}
+          after_destroy(:reindex){reindex if self.class.search_callbacks?}
         end
 
         def self.enable_search_callbacks
@@ -60,7 +60,7 @@ module Searchkick
 
         def reindex
           index = self.class.searchkick_index
-          if destroyed? or !should_index?
+          if @destroyed or !should_index?
             begin
               index.remove self
             rescue Elasticsearch::Transport::Transport::Errors::NotFound
@@ -72,7 +72,7 @@ module Searchkick
         end
 
         def search_data
-          respond_to?(:to_hash) ? to_hash : serializable_hash
+          respond_to?(:to_hash) ? to_hash : values
         end
 
       end

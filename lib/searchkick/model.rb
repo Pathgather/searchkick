@@ -35,12 +35,8 @@ module Searchkick
         extend Searchkick::Reindex
         include Searchkick::Similar
 
-        if respond_to?(:after_commit)
-          after_commit(:reindex){reindex if self.class.search_callbacks?}
-        else
-          after_save(:reindex){reindex if self.class.search_callbacks?}
-          after_destroy(:reindex){reindex if self.class.search_callbacks?}
-        end
+        after_save(:reindex){db.after_commit{reindex} if self.class.search_callbacks?}
+        after_destroy(:reindex){db.after_commit{reindex} if self.class.search_callbacks?}
 
         def self.enable_search_callbacks
           class_variable_set :@@searchkick_callbacks, true

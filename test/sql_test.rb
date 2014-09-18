@@ -1,6 +1,6 @@
 require_relative "test_helper"
 
-class TestSql < Minitest::Unit::TestCase
+class TestSql < Minitest::Test
 
   def test_limit
     store_names ["Product A", "Product B", "Product C", "Product D"]
@@ -22,6 +22,7 @@ class TestSql < Minitest::Unit::TestCase
     store_names ["Product A", "Product B", "Product C", "Product D", "Product E", "Product F"]
     products = Product.search("product", order: {name: :asc}, page: 2, per_page: 2, padding: 1)
     assert_equal ["Product D", "Product E"], products.map(&:name)
+    assert_equal "product", products.entry_name
     assert_equal 2, products.current_page
     assert_equal 1, products.padding
     assert_equal 2, products.per_page
@@ -33,6 +34,9 @@ class TestSql < Minitest::Unit::TestCase
     assert_equal 2, products.limit_value
     assert_equal 3, products.offset_value
     assert_equal 3, products.offset
+    assert_equal 3, products.next_page
+    assert_equal 1, products.previous_page
+    assert_equal 1, products.prev_page
     assert !products.first_page?
     assert !products.last_page?
     assert !products.empty?
@@ -202,6 +206,11 @@ class TestSql < Minitest::Unit::TestCase
     assert_order "product", [], order: {not_mapped: {ignore_unmapped: true}}, conversions: false
   end
 
+  def test_order_array
+    store [{name: "San Francisco", latitude: 37.7833, longitude: -122.4167}]
+    assert_order "francisco", ["San Francisco"], order: [{_geo_distance: {location: "0,0"}}], conversions: false
+  end
+
   def test_partial
     store_names ["Honey"]
     assert_search "fresh honey", []
@@ -272,6 +281,27 @@ class TestSql < Minitest::Unit::TestCase
   def test_load_false_with_include
     store_names ["Product A"]
     assert_kind_of Hash, Product.search("product", load: false, include: [:store]).first
+  end
+
+  # select
+
+  def test_select
+    store [{name: "Product A", store_id: 1}]
+    result = Product.search("product", load: false, select: [:name, :store_id]).first
+    assert_equal %w[id name store_id], result.keys.reject{|k| k.start_with?("_") }.sort
+    assert_equal ["Product A"], result.name # this is not great
+  end
+
+  def test_select_array
+    store [{name: "Product A", user_ids: [1, 2]}]
+    result = Product.search("product", load: false, select: [:user_ids]).first
+    assert_equal [1, 2], result.user_ids
+  end
+
+  def test_nested_object
+    aisle = {"id" => 1, "name" => "Frozen"}
+    store [{name: "Product A", aisle: aisle}]
+    assert_equal aisle, Product.search("product", load: false).first.aisle.to_hash
   end
 
   # TODO see if Mongoid is loaded

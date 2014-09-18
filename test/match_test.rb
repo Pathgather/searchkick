@@ -2,7 +2,7 @@
 
 require_relative "test_helper"
 
-class TestMatch < Minitest::Unit::TestCase
+class TestMatch < Minitest::Test
 
   # exact
 
@@ -137,6 +137,15 @@ class TestMatch < Minitest::Unit::TestCase
   def test_all
     store_names ["Product A", "Product B"]
     assert_search "*", ["Product A", "Product B"]
+  end
+
+  def test_no_arguments
+    assert_equal [], Product.search.to_a
+  end
+
+  def test_no_term
+    store_names ["Product A"]
+    assert_equal ["Product A"], Product.search(where: {name: "Product A"}).map(&:name)
   end
 
   def test_to_be_or_not_to_be

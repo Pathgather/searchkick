@@ -42,10 +42,10 @@ brew install elasticsearch
 Add this line to your application’s Gemfile:
 
 ```ruby
-gem "searchkick"
+gem 'searchkick'
 ```
 
-For Elasticsearch 0.90, use version `0.6.3`.
+For Elasticsearch 0.90, use version `0.6.3` and [this readme](https://github.com/ankane/searchkick/blob/v0.6.3/README.md).
 
 Add searchkick to models you want to search.
 
@@ -70,6 +70,8 @@ products.each do |product|
 end
 ```
 
+Searchkick supports the complete [Elasticsearch Search API](http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-search.html). As your search becomes more advanced, we recommend you use the [Elasticsearch DSL](#advanced) for maximum flexibility.
+
 ### Queries
 
 Query like SQL
@@ -77,8 +79,6 @@ Query like SQL
 ```ruby
 Product.search "2% Milk", where: {in_stock: true}, limit: 10, offset: 50
 ```
-
-**Note:** If you prefer the Elasticsearch DSL, see the [Advanced section](#advanced)
 
 Search specific fields
 
@@ -116,11 +116,29 @@ Limit / offset
 limit: 20, offset: 40
 ```
 
-Boost by a field
+### Boosting
+
+Boost important fields
 
 ```ruby
-boost: "orders_count" # give popular documents a little boost
+fields: ["title^10", "description"]
 ```
+
+Boost by the value of a field
+
+```ruby
+boost_by: [:orders_count] # give popular documents a little boost
+boost_by: {orders_count: {factor: 10}} # default factor is 1
+```
+
+Boost matching documents
+
+```ruby
+boost_where: {user_id: 1} # default factor is 1000
+boost_where: {user_id: {value: 1, factor: 100}}
+```
+
+[Conversions](#keep-getting-better) are also a great way to boost.
 
 ### Get Everything
 
@@ -137,9 +155,18 @@ Plays nicely with kaminari and will_paginate.
 ```ruby
 # controller
 @products = Product.search "milk", page: params[:page], per_page: 20
+```
 
-# view
+View with kaminari
+
+```erb
 <%= paginate @products %>
+```
+
+View with will_paginate
+
+```erb
+<%= will_paginate @products %>
 ```
 
 ### Partial Matches
@@ -164,7 +191,7 @@ class Product < ActiveRecord::Base
 end
 ```
 
-And to search:
+And to search (after you reindex):
 
 ```ruby
 Product.search "back", fields: [{name: :word_start}]
@@ -180,6 +207,18 @@ Available options are:
 :text_start
 :text_middle
 :text_end
+```
+
+To boost fields, use:
+
+```ruby
+fields: [{"name^2" => :word_start}] # better interface on the way
+```
+
+### Exact Matches
+
+```ruby
+User.search "hi@searchkick.org", fields: [{email: :exact}, :name]
 ```
 
 ### Language
@@ -204,6 +243,27 @@ end
 
 Call `Product.reindex` after changing synonyms.
 
+### WordNet
+
+Prepopulate English synonyms with the [WordNet database](http://en.wikipedia.org/wiki/WordNet).
+
+Download [WordNet 3.0](http://wordnetcode.princeton.edu/3.0/WNprolog-3.0.tar.gz) to each Elasticsearch server and move `wn_s.pl` to the `/var/lib` directory.
+
+```sh
+cd /tmp
+curl -o wordnet.tar.gz http://wordnetcode.princeton.edu/3.0/WNprolog-3.0.tar.gz
+tar -zxvf wordnet.tar.gz
+mv prolog/wn_s.pl /var/lib
+```
+
+Tell each model to use it:
+
+```ruby
+class Product < ActiveRecord::Base
+  searchkick wordnet: true
+end
+```
+
 ### Misspellings
 
 By default, Searchkick handles misspelled queries by returning results with an [edit distance](http://en.wikipedia.org/wiki/Levenshtein_distance) of one. To turn off this feature, use:
@@ -215,7 +275,7 @@ Product.search "zuchini", misspellings: false # no zucchini
 You can also change the edit distance with:
 
 ```ruby
-Product.search "zucini", misspellings: {distance: 2} # zucchini
+Product.search "zucini", misspellings: {edit_distance: 2} # zucchini
 ```
 
 ### Indexing
@@ -264,7 +324,36 @@ end
 #### No need to reindex
 
 - App starts
-- Records are inserted, updated or deleted (syncs automatically)
+
+### Stay Synced
+
+There are three strategies for keeping the index synced with your database.
+
+1. Immediate (default)
+
+  Anytime a record is inserted, updated, or deleted
+
+2. Asynchronous
+
+  Use background jobs for better performance
+
+  ```ruby
+  class Product < ActiveRecord::Base
+    searchkick callbacks: :async
+  end
+  ```
+
+  Supports [Delayed Job](https://github.com/collectiveidea/delayed_job) only at the moment
+
+3. Manual
+
+  Turn off automatic syncing
+
+  ```ruby
+  class Product < ActiveRecord::Base
+    searchkick callbacks: false
+  end
+  ```
 
 ### Keep Getting Better
 
@@ -281,7 +370,7 @@ end
 
 You do **not** need to clean up the search queries.  Searchkick automatically treats `apple` and `APPLES` the same.
 
-Next, add conversions to the index.  You must specify the conversions field as of version `0.2.0`.
+Next, add conversions to the index.
 
 ```ruby
 class Product < ActiveRecord::Base
@@ -311,22 +400,21 @@ Order results differently for each user.  For example, show a user’s previousl
 
 ```ruby
 class Product < ActiveRecord::Base
-  searchkick personalize: "user_ids"
 
   def search_data
     {
       name: name,
-      user_ids: orders.pluck(:user_id) # boost this product for these users
-      # [4, 8, 15, 16, 23, 42]
+      orderer_ids: orders.pluck(:user_id) # boost this product for these users
     }
   end
+
 end
 ```
 
 Reindex and search with:
 
 ```ruby
-Product.search "milk", user_id: 8
+Product.search "milk", boost_where: {orderer_ids: current_user.id}
 ```
 
 ### Autocomplete
@@ -443,13 +531,21 @@ price_ranges = [{to: 20}, {from: 20, to: 50}, {from: 50}]
 Product.search "*", facets: {price: {ranges: price_ranges}}
 ```
 
-Use the `stats` option to get to max, min, mean, and total scores for each facet [master]
+Use the `stats` option to get to max, min, mean, and total scores for each facet
 
 ```ruby
 Product.search "*", facets: {store_id: {stats: true}}
 ```
 
 ### Highlight
+
+Specify which fields to index with highlighting. [master]
+
+```ruby
+class Product < ActiveRecord::Base
+  searchkick highlight: [:name]
+end
+```
 
 Highlight the search query in the results.
 
@@ -483,8 +579,6 @@ product.similar(fields: ["name"])
 ```
 
 ### Geospatial Searches
-
-**Note:** Before `0.3.0`, locations were indexed incorrectly. When upgrading, be sure to reindex immediately.
 
 ```ruby
 class City < ActiveRecord::Base
@@ -538,6 +632,33 @@ Animal.search "*", type: [Dog, Cat] # just cats and dogs
 Dog.search "airbudd", suggest: true # suggestions for all animals
 ```
 
+## Debugging Queries
+
+See how Elasticsearch tokenizes your queries with:
+
+```ruby
+Product.searchkick_index.tokens("Dish Washer Soap", analyzer: "default_index")
+# ["dish", "dishwash", "washer", "washersoap", "soap"]
+
+Product.searchkick_index.tokens("dishwasher soap", analyzer: "searchkick_search")
+# ["dishwashersoap"] - no match
+
+Product.searchkick_index.tokens("dishwasher soap", analyzer: "searchkick_search2")
+# ["dishwash", "soap"] - match!!
+```
+
+Partial matches
+
+```ruby
+Product.searchkick_index.tokens("San Diego", analyzer: "searchkick_word_start_index")
+# ["s", "sa", "san", "d", "di", "die", "dieg", "diego"]
+
+Product.searchkick_index.tokens("dieg", analyzer: "searchkick_word_search")
+# ["dieg"] - match!!
+```
+
+See the [complete list of analyzers](lib/searchkick/reindex.rb#L86).
+
 ## Deployment
 
 Searchkick uses `ENV["ELASTICSEARCH_URL"]` for the Elasticsearch server.  This defaults to `http://localhost:9200`.
@@ -579,6 +700,28 @@ Then deploy and reindex:
 ```sh
 rake searchkick:reindex CLASS=Product
 ```
+
+### Performance
+
+For the best performance, add [Patron](https://github.com/toland/patron) to your Gemfile.
+
+```ruby
+gem 'patron'
+```
+
+Searchkick will automatically use it.
+
+**Note:** Patron is not available for Windows.
+
+### Automatic Failover
+
+Create an initializer `config/initializers/elasticsearch.rb` with multiple hosts:
+
+```ruby
+Searchkick.client = Elasticsearch::Client.new(hosts: ["localhost:9200", "localhost:9201"], retry_on_failure: true)
+```
+
+See [elasticsearch-transport](https://github.com/elasticsearch/elasticsearch-ruby/blob/master/elasticsearch-transport) for a complete list of options.
 
 ## Advanced
 
@@ -657,21 +800,25 @@ class Product < ActiveRecord::Base
 end
 ```
 
-Turn off callbacks permanently
-
-```ruby
-class Product < ActiveRecord::Base
-  searchkick callbacks: false
-end
-```
-
-or temporarily
+Turn off callbacks temporarily
 
 ```ruby
 Product.disable_search_callbacks # or use Searchkick.disable_callbacks for all models
 ExpensiveProductsTask.execute
 Product.enable_search_callbacks # or use Searchkick.enable_callbacks for all models
 Product.reindex
+```
+
+Change timeout [master]
+
+```ruby
+Searchkick.timeout = 5 # defaults to 10
+```
+
+Change the search method name in `config/initializers/searchkick.rb`
+
+```ruby
+Searchkick.search_method_name = :lookup
 ```
 
 Eager load associations
@@ -703,25 +850,20 @@ class Product < ActiveRecord::Base
 end
 ```
 
-Asynchronous reindexing
+Reindex asynchronously
 
 ```ruby
 class Product < ActiveRecord::Base
   searchkick callbacks: false
 
-  # add the callbacks manually
-
-  # ActiveRecord - one callback
-  after_commit :reindex_async
-
-  # Mongoid - two callbacks
-  after_save :reindex_async
-  after_destroy :reindex_async
-
   def reindex_async
-    # delayed job
-    delay.reindex
+    # custom code to reindex
   end
+
+  after_commit :reindex_async
+  # or for Mongoid
+  # after_save :reindex_async
+  # after_destroy :reindex_async
 end
 ```
 
@@ -739,7 +881,7 @@ class Product < ActiveRecord::Base
 end
 ```
 
-Reindex all models (Rails only)
+Reindex all models - Rails only
 
 ```sh
 rake searchkick:reindex:all
@@ -775,9 +917,19 @@ rake searchkick:reindex:all
 
 4. Once it finishes, replace search calls w/ searchkick calls
 
-## Note about 0.6.0 and 0.7.0
+## Upgrading
+
+View the [changelog](https://github.com/ankane/searchkick/blob/master/CHANGELOG.md).
+
+Important notes are listed below.
+
+### 0.6.0 and 0.7.0
 
 If running Searchkick `0.6.0` or `0.7.0` and Elasticsearch `0.90`, we recommend upgrading to Searchkick `0.6.1` or `0.7.1` to fix an issue that causes downtime when reindexing.
+
+### 0.3.0
+
+Before `0.3.0`, locations were indexed incorrectly. When upgrading, be sure to reindex immediately.
 
 ## Elasticsearch Gotchas
 
@@ -805,10 +957,6 @@ Thanks to Karel Minarik for [Elasticsearch Ruby](https://github.com/elasticsearc
 - Add section on testing
 - Much finer customization
 - More transparency into generated queries (for advanced use)
-
-## History
-
-View the [changelog](https://github.com/ankane/searchkick/blob/master/CHANGELOG.md)
 
 ## Contributing
 

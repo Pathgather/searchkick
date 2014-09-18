@@ -1,6 +1,6 @@
 require_relative "test_helper"
 
-class TestIndex < Minitest::Unit::TestCase
+class TestIndex < Minitest::Test
 
   def test_clean_indices
     old_index = Searchkick::Index.new("products_test_20130801000000000")
@@ -35,10 +35,26 @@ class TestIndex < Minitest::Unit::TestCase
     assert_equal ["Dollar Tree"], Store.search(query: {match: {name: "Dollar Tree"}}).map(&:name)
   end
 
+  def test_json
+    store_names ["Dollar Tree"], Store
+    assert_equal [], Store.search(query: {match: {name: "dollar"}}).map(&:name)
+    assert_equal ["Dollar Tree"], Store.search(json: {query: {match: {name: "Dollar Tree"}}}, load: false).map(&:name)
+  end
+
+  def test_tokens
+    assert_equal ["dollar", "dollartre", "tree"], Product.searchkick_index.tokens("Dollar Tree")
+  end
+
+  def test_tokens_analyzer
+    assert_equal ["dollar", "tree"], Product.searchkick_index.tokens("Dollar Tree", analyzer: "searchkick_search2")
+  end
+
   def test_record_not_found
     store_names ["Product A", "Product B"]
     Product.where(name: "Product A").destroy
     assert_search "product", ["Product B"]
+  ensure
+    Product.reindex
   end
 
   def test_bad_mapping

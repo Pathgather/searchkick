@@ -15,3 +15,4 @@ end
 # gem "activerecord"
 # gem "activerecord", "~> 3.2.0"
 # gem "activerecord", "~> 3.1.0"
+# gem "activerecord", "~> 4.1.0"

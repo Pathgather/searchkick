@@ -6,12 +6,36 @@ require "logger"
 
 ENV["RACK_ENV"] = "test"
 
+Minitest::Test = Minitest::Unit::TestCase unless defined?(Minitest::Test)
+
 File.delete("elasticsearch.log") if File.exists?("elasticsearch.log")
 Searchkick.client.transport.logger = Logger.new("elasticsearch.log")
 
+I18n.config.enforce_available_locales = true
+
 if defined?(Mongoid)
+
+  def mongoid2?
+    Mongoid::VERSION.starts_with?("2.")
+  end
+
+  if mongoid2?
+    # enable comparison of BSON::ObjectIds
+    module BSON
+      class ObjectId
+        def <=>(other)
+          self.data <=> other.data
+        end
+      end
+    end
+  end
+
   Mongoid.configure do |config|
-    config.connect_to "searchkick_test"
+    if mongoid2?
+      config.master = Mongo::Connection.new.db("searchkick_test")
+    else
+      config.connect_to "searchkick_test"
+    end
   end
 
   class Product
@@ -205,12 +229,19 @@ class Product
       }
     },
     merge_mappings: true,
-    child: "Part"
+    child: "Part",
+    highlight: [:name]
 
-  attr_accessor :conversions, :user_ids
+  attr_accessor :conversions, :user_ids, :aisle
 
   def search_data
-    values.except(:id).merge conversions: conversions, user_ids: user_ids, location: [latitude, longitude], multiple_locations: [[latitude, longitude], [0, 0]]
+    values.except(:id).merge(
+      conversions: conversions,
+      user_ids: user_ids,
+      location: [latitude, longitude],
+      multiple_locations: [[latitude, longitude], [0, 0]],
+      aisle: aisle
+    )
   end
 
   def should_index?
@@ -237,7 +268,11 @@ class Store
 end
 
 class Animal
-  searchkick autocomplete: [:name], suggest: [:name], index_name: -> { "#{self.name.tableize}-#{Date.today.year}" }
+  searchkick \
+    autocomplete: [:name],
+    suggest: [:name],
+    index_name: -> { "#{self.name.tableize}-#{Date.today.year}" }
+    # wordnet: true
 end
 
 Product.searchkick_index.delete if Product.searchkick_index.exists?
@@ -247,7 +282,7 @@ Product.reindex # run twice for both index paths
 Store.reindex
 Animal.reindex
 
-class Minitest::Unit::TestCase
+class Minitest::Test
 
   def setup
     Product.each &:destroy

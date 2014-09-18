@@ -1,3 +1,5 @@
+require "forwardable"
+
 module Searchkick
   class Results
     include Enumerable
@@ -35,7 +37,12 @@ module Searchkick
           end.compact
         else
           hits.map do |hit|
-            result = hit.except("_source").merge(hit["_source"])
+            result =
+              if hit["_source"]
+                hit.except("_source").merge(hit["_source"])
+              else
+                hit.except("fields").merge(hit["fields"])
+              end
             result["id"] ||= result["_id"] # needed for legacy reasons
             Hashie::Mash.new(result)
           end
@@ -59,7 +66,7 @@ module Searchkick
       each_with_hit.map do |model, hit|
         details = {}
         if hit["highlight"]
-          details[:highlight] = Hash[ hit["highlight"].map{|k, v| [k.sub(/\.analyzed\z/, "").to_sym, v.first] } ]
+          details[:highlight] = Hash[ hit["highlight"].map{|k, v| [(options[:json] ? k : k.sub(/\.analyzed\z/, "")).to_sym, v.first] } ]
         end
         [model, details]
       end
@@ -71,6 +78,10 @@ module Searchkick
 
     def model_name
       klass.model_name
+    end
+
+    def entry_name
+      model_name.human.downcase
     end
 
     def total_count
@@ -104,6 +115,7 @@ module Searchkick
     def previous_page
       current_page > 1 ? (current_page - 1) : nil
     end
+    alias_method :prev_page, :previous_page
 
     def next_page
       current_page < total_pages ? (current_page + 1) : nil

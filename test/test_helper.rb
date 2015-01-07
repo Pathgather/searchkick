@@ -6,12 +6,38 @@ require "logger"
 
 ENV["RACK_ENV"] = "test"
 
+Minitest::Test = Minitest::Unit::TestCase unless defined?(Minitest::Test)
+
 File.delete("elasticsearch.log") if File.exists?("elasticsearch.log")
 Searchkick.client.transport.logger = Logger.new("elasticsearch.log")
 
+I18n.config.enforce_available_locales = true
+
+ActiveJob::Base.logger = nil if defined?(ActiveJob)
+
 if defined?(Mongoid)
+
+  def mongoid2?
+    Mongoid::VERSION.starts_with?("2.")
+  end
+
+  if mongoid2?
+    # enable comparison of BSON::ObjectIds
+    module BSON
+      class ObjectId
+        def <=>(other)
+          self.data <=> other.data
+        end
+      end
+    end
+  end
+
   Mongoid.configure do |config|
-    config.connect_to "searchkick_test"
+    if mongoid2?
+      config.master = Mongo::Connection.new.db("searchkick_test")
+    else
+      config.connect_to "searchkick_test"
+    end
   end
 
   class Product
@@ -27,6 +53,7 @@ if defined?(Mongoid)
     field :color
     field :latitude, type: BigDecimal
     field :longitude, type: BigDecimal
+    field :description
   end
 
   class Store
@@ -39,6 +66,45 @@ if defined?(Mongoid)
     include Mongoid::Document
 
     field :name
+  end
+
+  class Dog < Animal
+  end
+
+  class Cat < Animal
+  end
+elsif defined?(NoBrainer)
+  NoBrainer.configure do |config|
+    config.app_name = :searchkick
+    config.environment = :test
+  end
+
+  class Product
+    include NoBrainer::Document
+    include NoBrainer::Document::Timestamps
+
+    field :name,         type: String
+    field :store_id,     type: Integer
+    field :in_stock,     type: Boolean
+    field :backordered,  type: Boolean
+    field :orders_count, type: Integer
+    field :price,        type: Integer
+    field :color,        type: String
+    field :latitude
+    field :longitude
+    field :description,  type: String
+  end
+
+  class Store
+    include NoBrainer::Document
+
+    field :name, type: String
+  end
+
+  class Animal
+    include NoBrainer::Document
+
+    field :name, type: String
   end
 
   class Dog < Animal
@@ -59,6 +125,8 @@ else
   # migrations
   ActiveRecord::Base.establish_connection adapter: "sqlite3", database: ":memory:"
 
+  ActiveRecord::Base.raise_in_transactional_callbacks = true if ActiveRecord::Base.respond_to?(:raise_in_transactional_callbacks=)
+
   ActiveRecord::Migration.create_table :products do |t|
     t.string :name
     t.integer :store_id
@@ -69,7 +137,8 @@ else
     t.string :color
     t.decimal :latitude, precision: 10, scale: 7
     t.decimal :longitude, precision: 10, scale: 7
-    t.timestamps
+    t.text :description
+    t.timestamps null: true
   end
 
   ActiveRecord::Migration.create_table :parts do |t|
@@ -142,12 +211,20 @@ class Product
       }
     },
     merge_mappings: true,
-    child: "Part"
+    child: "Part",
+    highlight: [:name],
+    unsearchable: [:description]
 
-  attr_accessor :conversions, :user_ids
+  attr_accessor :conversions, :user_ids, :aisle
 
   def search_data
-    serializable_hash.except("id").merge conversions: conversions, user_ids: user_ids, location: [latitude, longitude], multiple_locations: [[latitude, longitude], [0, 0]]
+    serializable_hash.except("id").merge(
+      conversions: conversions,
+      user_ids: user_ids,
+      location: [latitude, longitude],
+      multiple_locations: [[latitude, longitude], [0, 0]],
+      aisle: aisle
+    )
   end
 
   def should_index?
@@ -174,7 +251,11 @@ class Store
 end
 
 class Animal
-  searchkick autocomplete: [:name], suggest: [:name], index_name: -> { "#{self.name.tableize}-#{Date.today.year}" }
+  searchkick \
+    autocomplete: [:name],
+    suggest: [:name],
+    index_name: -> { "#{self.name.tableize}-#{Date.today.year}" }
+    # wordnet: true
 end
 
 Product.searchkick_index.delete if Product.searchkick_index.exists?
@@ -184,7 +265,7 @@ Product.reindex # run twice for both index paths
 Store.reindex
 Animal.reindex
 
-class Minitest::Unit::TestCase
+class Minitest::Test
 
   def setup
     Product.destroy_all

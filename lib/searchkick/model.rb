@@ -1,78 +1,116 @@
 module Searchkick
+  module Reindex; end # legacy for Searchjoy
+
   module Model
 
     def searchkick(options = {})
       raise "Only call searchkick once per model" if respond_to?(:searchkick_index)
 
+      Searchkick.models << self
+
       class_eval do
-        cattr_reader :searchkick_options, :searchkick_env, :searchkick_klass
+        cattr_reader :searchkick_options, :searchkick_klass
+
+        callbacks = options.has_key?(:callbacks) ? options[:callbacks] : true
 
         class_variable_set :@@searchkick_options, options.dup
-        class_variable_set :@@searchkick_env, ENV["RACK_ENV"] || ENV["RAILS_ENV"] || "development"
         class_variable_set :@@searchkick_klass, self
-        class_variable_set :@@searchkick_callbacks, options[:callbacks] != false
-        class_variable_set :@@searchkick_index, options[:index_name] || [options[:index_prefix], model_name.plural, searchkick_env].compact.join("_")
+        class_variable_set :@@searchkick_callbacks, callbacks
+        class_variable_set :@@searchkick_index, options[:index_name] || [options[:index_prefix], model_name.plural, Searchkick.env].compact.join("_")
 
-        def self.searchkick_index
-          if searchkick_parent
-            searchkick_parent.searchkick_index
-          else
-            index = class_variable_get :@@searchkick_index
-            index = index.call if index.respond_to? :call
-            Searchkick::Index.new(index)
+        define_singleton_method(Searchkick.search_method_name) do |term = nil, options={}, &block|
+          searchkick_index.search_model(self, term, options, &block)
+        end
+        extend Searchkick::Reindex # legacy for Searchjoy
+
+        class << self
+
+          def searchkick_parent
+            searchkick_options[:parent].try(:constantize)
           end
+
+          def searchkick_child
+            searchkick_options[:child].try(:constantize)
+          end
+
+          def searchkick_index
+            if searchkick_parent
+              searchkick_parent.searchkick_index
+            else
+              index = class_variable_get :@@searchkick_index
+              index = index.call if index.respond_to? :call
+              Searchkick::Index.new(index, searchkick_options)
+            end
+          end
+
+          def enable_search_callbacks
+            class_variable_set :@@searchkick_callbacks, true
+          end
+
+          def disable_search_callbacks
+            class_variable_set :@@searchkick_callbacks, false
+          end
+
+          def search_callbacks?
+            class_variable_get(:@@searchkick_callbacks) && Searchkick.callbacks?
+          end
+
+          def reindex(options = {})
+            raise "Don't reindex a searchkick child!" if searchkick_parent
+
+            searchkick_index.reindex_scope(searchkick_klass, options)
+
+            # if child = searchkick_child
+            #   searchkick_index.reindex_scope(child, options)
+            # end
+          end
+
+          def clean_indices
+            searchkick_index.clean_indices
+          end
+
+          def searchkick_import(options = {})
+            (options[:index] || searchkick_index).import_scope(searchkick_klass)
+          end
+
+          def searchkick_create_index
+            searchkick_index.create_index
+          end
+
+          def searchkick_index_options
+            searchkick_index.index_options
+          end
+
         end
 
-        def self.searchkick_parent
-          searchkick_options[:parent].try(:constantize)
-        end
-
-        def self.searchkick_child
-          searchkick_options[:child].try(:constantize)
-        end
-
-        extend Searchkick::Search
-        extend Searchkick::Reindex
-        include Searchkick::Similar
-
-        if respond_to?(:after_commit)
-          after_commit :reindex, if: proc{ self.class.search_callbacks? }
-        else
-          after_save :reindex, if: proc{ self.class.search_callbacks? }
-          after_destroy :reindex, if: proc{ self.class.search_callbacks? }
-        end
-
-        def self.enable_search_callbacks
-          class_variable_set :@@searchkick_callbacks, true
-        end
-
-        def self.disable_search_callbacks
-          class_variable_set :@@searchkick_callbacks, false
-        end
-
-        def self.search_callbacks?
-          class_variable_get(:@@searchkick_callbacks) && Searchkick.callbacks?
-        end
-
-        def should_index?
-          true
+        if callbacks
+          callback_name = callbacks == :async ? :reindex_async : :reindex
+          if respond_to?(:after_commit)
+            after_commit callback_name, if: proc{ self.class.search_callbacks? }
+          else
+            after_save callback_name, if: proc{ self.class.search_callbacks? }
+            after_destroy callback_name, if: proc{ self.class.search_callbacks? }
+          end
         end
 
         def reindex
-          index = self.class.searchkick_index
-          if destroyed? or !should_index?
-            begin
-              index.remove self
-            rescue Elasticsearch::Transport::Transport::Errors::NotFound
-              # do nothing
-            end
-          else
-            index.store self
-          end
+          self.class.searchkick_index.reindex_record(self)
+        end
+
+        def reindex_async
+          self.class.searchkick_index.reindex_record_async(self)
+        end
+
+        def similar(options = {})
+          self.class.searchkick_index.similar_record(self, options)
         end
 
         def search_data
           respond_to?(:to_hash) ? to_hash : serializable_hash
+        end
+
+        def should_index?
+          true
         end
 
       end

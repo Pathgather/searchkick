@@ -1,6 +1,6 @@
 require_relative "test_helper"
 
-class TestParentChild < Minitest::Unit::TestCase
+class TestParentChild < Minitest::Test
   def setup
     super
 
@@ -60,6 +60,7 @@ class TestParentChild < Minitest::Unit::TestCase
   end
 
   def test_parent_reindex
+    $break = true
     Product.reindex
     Product.searchkick_index.refresh
     assert_search '*', ["P1-1", "P1-2"], {where: {has_parent: {type: 'product', where: {orders_count: 4}}}}, Part

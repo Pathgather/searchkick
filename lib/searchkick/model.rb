@@ -81,6 +81,18 @@ module Searchkick
           end
         end
 
+        prepend Module.new {
+          def after_save
+            super
+            db.after_commit{reindex} if self.class.search_callbacks?
+          end
+
+          def after_destroy
+            super
+            db.after_commit{reindex} if self.class.search_callbacks?
+          end
+        }
+
         # if callbacks
         #   callback_name = callbacks == :async ? :reindex_async : :reindex
         #   if respond_to?(:after_commit)
@@ -90,9 +102,6 @@ module Searchkick
         #     after_destroy callback_name, if: proc{ self.class.search_callbacks? }
         #   end
         # end
-
-        after_save(:reindex){db.after_commit{reindex} if self.class.search_callbacks?}
-        after_destroy(:reindex){db.after_commit{reindex} if self.class.search_callbacks?}
 
         def reindex
           self.class.searchkick_index.reindex_record(self)

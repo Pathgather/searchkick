@@ -1,3 +1,66 @@
+## 0.8.6 [unreleased]
+
+- Added support for NoBrainer
+- Added `stem_conversions: false` option
+- Fixed suggestions with partial match boost
+- Added support for multiple `boost_where` values on the same field
+
+## 0.8.5
+
+- Added support for Elasticsearch 1.4
+- Added `unsearchable` option
+- Added `select: true` option
+- Added `body` option
+
+## 0.8.4
+
+- Added `boost_by_distance`
+- More flexible highlight options
+- Better `env` logic
+
+## 0.8.3
+
+- Added support for ActiveJob
+- Added `timeout` setting
+- Fixed import with no records
+
+## 0.8.2
+
+- Added `async` to `callbacks` option
+- Added `wordnet` option
+- Added `edit_distance` option to eventually replace `distance` option
+- Catch misspelling of `misspellings` option
+- Improved logging
+
+## 0.8.1
+
+- Added `search_method_name` option
+- Fixed `order` for array of hashes
+- Added support for Mongoid 2
+
+## 0.8.0
+
+- Added support for Elasticsearch 1.2
+
+## 0.7.9
+
+- Added `tokens` method
+- Added `json` option
+- Added exact matches
+- Added `prev_page` for Kaminari pagination
+- Added `import` option to reindex
+
+## 0.7.8
+
+- Added `boost_by` and `boost_where` options
+- Added ability to boost fields - `name^10`
+- Added `select` option for `load: false`
+
+## 0.7.7
+
+- Added support for automatic failover
+- Fixed `operator` option (and default) for partial matches
+
 ## 0.7.6
 
 - Added `stats` option to facets

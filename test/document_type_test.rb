@@ -1,6 +1,6 @@
 require_relative "test_helper"
 
-class DocumentTypeTest < Minitest::Unit::TestCase
+class DocumentTypeTest < Minitest::Test
 
   def test_default_document_type
     index = Searchkick::Index.new('dummy')

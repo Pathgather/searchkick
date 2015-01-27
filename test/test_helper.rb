@@ -96,6 +96,7 @@ elsif defined? Sequel
     decimal :longitude, precision: 10, scale: 7
     timestamp :created_at
     timestamp :updated_at
+    string :description
   end
 
   DB.create_table :parts do
@@ -283,7 +284,7 @@ class Product
   attr_accessor :conversions, :user_ids, :aisle
 
   def search_data
-    serializable_hash.except("id").merge(
+    values.except(:id).merge(
       conversions: conversions,
       user_ids: user_ids,
       location: [latitude, longitude],

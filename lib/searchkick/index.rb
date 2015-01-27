@@ -67,7 +67,7 @@ module Searchkick
     end
 
     def reindex_record(record)
-      if record.destroyed? or !record.should_index?
+      if record.instance_variable_get(:@destroyed) or !record.should_index?
         begin
           remove(record)
         rescue Elasticsearch::Transport::Transport::Errors::NotFound

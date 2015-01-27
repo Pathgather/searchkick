@@ -141,6 +141,9 @@ module Searchkick
       if records.respond_to?(:primary_key) and records.primary_key
         # ActiveRecord
         records.where(records.primary_key => grouped_hits.map{|hit| hit["_id"] }).to_a
+      elsif defined?(Sequel::Dataset) && records < Sequel::Dataset
+        # Sequel
+        records.where(records.model.primary_key => grouped_hits.map{|hit| hit["_id"] }).all
       elsif records.respond_to?(:all) and records.all.respond_to?(:for_ids)
         # Mongoid 2
         records.all.for_ids(grouped_hits.map{|hit| hit["_id"] }).to_a

@@ -131,6 +131,7 @@ elsif defined? Sequel
 
   class Animal < Sequel::Model
     unrestrict_primary_key
+    plugin :single_table_inheritance, :type
   end
 
   class Dog < Animal

@@ -461,14 +461,17 @@ module Searchkick
           filters << {not: clause}
 
         elsif field == :has_child
-          filters << {
-            has_child: {
-              type: value[:type],
-              filter: {
-                and: where_filters(value[:where])
+          child_values = value.is_a?(Array) ? value : [value]
+          child_values.each do |value|
+            filters << {
+              has_child: {
+                type: value[:type],
+                filter: {
+                  and: where_filters(value[:where])
+                }
               }
             }
-          }
+          end
         elsif field == :has_parent
           filters << {
             has_parent: {

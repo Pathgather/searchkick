@@ -104,7 +104,13 @@ module Searchkick
         # end
 
         def reindex
-          self.class.searchkick_index.reindex_record(self)
+          index = if respond_to?(:custom_searchkick_index)
+                    custom_searchkick_index
+                  else
+                    self.class.searchkick_index
+                  end
+
+          index.reindex_record(self)
         end
 
         def reindex_async

@@ -35,6 +35,10 @@ class TestParentChild < Minitest::Test
     assert_search '*', ["Product1"], where: {has_child: {type: 'part', where: {total: 6}}}
   end
 
+  def test_child_search_array
+    assert_search '*', ["Product1"], where: {has_child: [{type: 'part', where: {total: 6}}, {type: 'part', where: {name: "P1-1"}}]}
+  end
+
   def test_child_not_search
     assert_search '*', ["Product2"], where: {not: {has_child: {type: 'part', where: {total: 6}}}}
   end
